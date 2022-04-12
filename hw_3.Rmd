@@ -1,0 +1,234 @@
+---
+title: "HW 3: 3-Level Growth Models"
+author: "Drew Walker"
+date: "4/11/2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, echo=FALSE,result=FALSE,  include=FALSE, message = FALSE, warnings = FALSE,tidy=TRUE, tidy.opts=list(arrow=TRUE, indent=2)}
+knitr::opts_chunk$set(echo = TRUE)
+library(lme4)
+library(lmerTest)
+library(performance)
+library(psych)
+library(tidyverse)
+#install.packages("coefplot2",
+#  repos="http://www.math.mcmaster.ca/bolker/R",
+#  type="source")
+library(coefplot2)
+library(sjPlot)
+library(sjmisc)
+library(patchwork)
+library(sjlabelled)
+library(car)
+library(knitr)
+```
+
+# Load in data
+
+## EDA
+
+```{r load-in, echo = FALSE, message = FALSE, warnings = FALSE,tidy=TRUE, tidy.opts=list(arrow=TRUE, indent=2)}
+load("hw3_growth3levels.rdata")
+
+hw3_growth3levels$schoolid <- as.factor(hw3_growth3levels$schoolid)
+hw3_growth3levels$childid <- as.factor(hw3_growth3levels$childid)
+
+descriptives <- describe(hw3_growth3levels)
+knitr::kable(descriptives)
+```
+
+### Question 1: Explore the data graphically. Singer & Willet only show how to do this for 2 levels, so expand your thinking (not necessarily the code) on how to look at data from students nested within schools.
+
+```{r facet-plot, echo = FALSE, message = FALSE, warning=FALSE,tidy=TRUE, tidy.opts=list(arrow=TRUE, indent=2)}
+# Facet by status 
+
+plot_facet_status <- ggplot(data = hw3_growth3levels, aes(Year,Math))+
+         geom_point(aes(color = schoolid))+
+  geom_smooth()+
+  ggtitle('Math score trends over time by school')+
+  theme_classic() +
+       theme(legend.position="none")+
+  facet_wrap(~ schoolid)
+plot_facet_status
+
+ggsave('math_scores_by_school.png', width = 10, height = 10, units = "in", limitsize = FALSE)
+```
+
+Overall, scores seem to generally get higher across years. There is some difference in variability across schools, but no huge differences in general trends.
+
+### 
+
+```{r linear-model, echo = FALSE,results=FALSE,  tidy=TRUE, tidy.opts=list(arrow=TRUE, indent=2)}
+
+fit1 = lmer(Math ∼ Year + (Year|childid) + (Year|schoolid), hw3_growth3levels, REML=FALSE)
+model_plot_year <- function(model,data){
+  coef_fit1 <- coef(fit1)
+  model_coefs <- coef_fit1$schoolid %>%
+    rename(Intercept = `(Intercept)`, Slope =
+             Year) %>%
+    rownames_to_column("schoolid")
+  math_groups_rans <- left_join(data,
+                                model_coefs, by
+                                = "schoolid")
+  model_coef_plot <- ggplot(data =
+                              math_groups_rans,
+                            mapping = aes(x = Year,
+                                          y = Math,
+                                          colour = schoolid)) +
+    geom_point(na.rm = T, alpha = 0.5) +
+    geom_abline(aes(intercept = Intercept, 
+                  slope = Slope,
+                  colour = schoolid),
+              size = 0.5)+
+    theme_classic()+
+    ggtitle("Math Scores Across Years (Linear)")+
+     theme(legend.position="none")
+return(model_coef_plot)
+}
+# Plot to reuse 
+model_plot_year2 <- function(model,data){
+  coef_fit1 <- coef(fit1)
+  model_coefs <- coef_fit1$schoolid %>%
+    rename(Intercept = `(Intercept)`, Slope =
+             Year) %>%
+    rownames_to_column("schoolid")
+  math_groups_rans <- left_join(data,
+                                model_coefs, by
+                                = "schoolid")
+  model_coef_plot <- ggplot(data =
+                              math_groups_rans,
+                            mapping = aes(x = YearSq,
+                                          y = Math,
+                                          colour = schoolid)) +
+    geom_point(na.rm = T, alpha = 0.5) +
+    geom_abline(aes(intercept = Intercept, 
+                  slope = Slope,
+                  colour = schoolid),
+              size = 0.5)+
+    theme_classic()+
+        ggtitle("Math Scores Across Years Squared")+
+     theme(legend.position="none")
+return(model_coef_plot)
+}
+
+#Cubed plot
+model_plot_year3 <- function(model,data){
+  coef_fit1 <- coef(fit1)
+  model_coefs <- coef_fit1$schoolid %>%
+    rename(Intercept = `(Intercept)`, Slope =
+             Year) %>%
+    rownames_to_column("schoolid")
+  math_groups_rans <- left_join(data,
+                                model_coefs, by
+                                = "schoolid")
+  model_coef_plot <- ggplot(data =
+                              math_groups_rans,
+                            mapping = aes(x = YearCubed,
+                                          y = Math,
+                                          colour = schoolid)) +
+    geom_point(na.rm = T, alpha = 0.5) +
+    geom_abline(aes(intercept = Intercept, 
+                  slope = Slope,
+                  colour = schoolid),
+              size = 0.5)+
+    theme_classic()+
+            ggtitle("Math Scores Across Years Cubed")+
+     theme(legend.position="none")
+return(model_coef_plot)
+}
+
+model_plot_year_pars <- function(model,data){
+  coef_fit1 <- coef(fit1)
+  model_coefs <- coef_fit1$schoolid %>%
+    rename(Intercept = `(Intercept)`, Slope =
+             Year) %>%
+    rownames_to_column("schoolid")
+  math_groups_rans <- left_join(data,
+                                model_coefs, by
+                                = "schoolid")
+  model_coef_plot <- ggplot(data =
+                              math_groups_rans,
+                            mapping = aes(x = Year,
+                                          y = Math,
+                                          colour = schoolid)) +
+    geom_point(na.rm = T, alpha = 0.5) +
+    geom_abline(aes(intercept = Intercept, 
+                  slope = Slope,
+                  colour = schoolid),
+              size = 0.5)+
+    theme_classic()+
+    ggtitle("Parsimonious Model (all Year terms)")+
+     theme(legend.position="none")
+return(model_coef_plot)
+}
+
+# see the plot
+linear_plot <- model_plot_year(fit1,hw3_growth3levels)
+ggsave('mixed_model1.png', width = 10, height = 10, units = "in", limitsize = FALSE)
+
+
+```
+
+```{r quadratic-time-model,results=FALSE, echo = FALSE, tidy=TRUE, tidy.opts=list(arrow=TRUE, indent=2)}
+fit2 = lmer(Math ∼ YearSq + (Year|childid) + (Year|schoolid), hw3_growth3levels, REML=FALSE)
+summary(fit2)
+squared_plot <- model_plot_year2(fit2,hw3_growth3levels)
+
+ggsave('mixed_model2.png', width = 10, height = 10, units = "in", limitsize = FALSE)
+```
+
+```{r cubic-time-model, tidy=TRUE, tidy.opts=list(arrow=TRUE, indent=2), echo = FALSE,results=FALSE}
+
+
+fit3 = lmer(Math ∼ YearCubed + (Year|childid) + (Year|schoolid), hw3_growth3levels, REML=FALSE)
+summary(fit3)
+cubed_plot <-model_plot_year3(fit3,hw3_growth3levels)
+ggsave('mixed_model3.png', width = 10, height = 10, units = "in", limitsize = FALSE)
+```
+
+#### Question 2: Explore if the relationship between time and the outcome might be Linear, Quadratic, or Cubic
+
+(See plots below Question 3)
+
+#### Question 3: Knowing what you found in the in-class exercise, what would be the parsimonious model (i.e. what would the model equations look like if you would take out the non-significant fixed and random effects)?
+
+```{r parsimonious-model,echo = FALSE}
+fit_sig = lmer(Math ∼ Year + YearSq+ YearCubed + (Year|childid) + (Year|schoolid), hw3_growth3levels, REML=FALSE)
+pars_plot <- model_plot_year_pars(fit_sig,hw3_growth3levels)
+tab_model(fit1,fit2,fit3,fit_sig, dv.labels = c("Linear", "Quadratic", "Cubic", "Parsimonious Model"), show.aic = TRUE, show.dev = TRUE)
+
+linear_plot+squared_plot+cubed_plot+pars_plot
+
+anova(fit1, fit2, fit3,fit_sig)
+
+icc(fit_sig, by_group = TRUE)
+vif(fit_sig)
+
+```
+
+All fixed effects for time were significant, though we did find high variance inflation factors especially in YearSq and YearCubed. Running a model with all terms resulted in little model performance and additional cost of complexity. We would recommend keeping the linear time term. Additionally, we lack strong theoretical rationale against fixing the slopes by child across years as well as by schools across years, and will keep the random terms in the model.
+
+ICCs reported at the individual child-level is very high .437, and lower for school-level 11.2%.
+
+### 4. Explore the two other school level variables (size -- number of students in the school & lowinc -- percent of students receiving free and reduced lunch) as predictors of the level-2 intercept and slopes individually. These should be two models, where each of these variables is the only level-3 predictor. The models should not have level-2 predictors. Report your findings in a table and interpret the findings in text format.
+
+```{r predictors-size-lowinc,echo=FALSE,results=FALSE}
+# size level 3 school predictor
+fit_size = lmer(Math ∼ Year + size + (Year|childid) + (Year|schoolid), hw3_growth3levels, REML=FALSE)
+summary(fit_size)
+
+# lowinc level 3 school predictor
+
+fit_lowinc = lmer(Math ∼ Year + lowinc + (Year|childid) + (Year|schoolid), hw3_growth3levels, REML=FALSE)
+summary(fit_lowinc)
+```
+
+Examining school-level predictors, we found a significant negative relationship (Model value) between low income student percentage at school and reading scores (B = -.01, p \<.001), where a 10% increase in students enrolled in free and reduced price lunches predicted a .1 decrease in math scores. We did not find a significant relationship between size of the school and math scores. Model fit results indicated that the model including low income as a predictor had improved model fit than the model including school size (Reduction in Deviance: 232.08, Reduction in AIC = 228.08).
+
+```{r tables,echo=FALSE}
+tab_model(fit_size, fit_lowinc, dv.labels = c(" School Size Predictor", "Low Income Predictor"), show.aic = TRUE, show.dev = TRUE)
+
+```
